@@ -1,0 +1,547 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Hounsfield</title>
+<link rel="icon" type="image/png" href="favicon-h.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Serif:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="app">
+    <header id="toolbar">
+      <div id="brand">
+        <img class="brandLogo" src="logo-mark.png" alt="Hounsfield Biomedical Imaging" />
+      </div>
+
+      <div class="toolGroup" role="group" aria-label="Browse">
+        <button id="btnWorklist" class="btn" title="Back to the study list">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h12M4 10h12M4 15h8"/></svg>
+          <span>Studies</span>
+        </button>
+        <button id="btnVideos" class="btn" title="Surgery video library">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="12" height="10" rx="1.5"/><path d="M14 8.5l4-2.5v8l-4-2.5"/></svg>
+          <span>Videos</span>
+        </button>
+      </div>
+
+      <div class="toolGroup viewerOnly" role="group" aria-label="Import">
+        <label class="btn" for="fileInput" title="Open Files">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 2h6l4 4v12H5z"/><path d="M11 2v4h4"/></svg>
+          <span>Files</span>
+        </label>
+        <input id="fileInput" type="file" accept=".dcm,application/dicom" multiple hidden />
+        <label class="btn" for="dirInput" title="Open Folder">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 5a1 1 0 0 1 1-1h4l1.5 2H17a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V5z"/></svg>
+          <span>Folder</span>
+        </label>
+        <input id="dirInput" type="file" webkitdirectory directory multiple hidden />
+        <button id="btnPacs" class="btn" title="Query &amp; retrieve studies from PACS locations">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5.5 15a3.5 3.5 0 0 1-.5-6.96A4.5 4.5 0 0 1 13.9 6.1 3.5 3.5 0 0 1 14.5 15z"/></svg>
+          <span>PACS</span>
+        </button>
+      </div>
+
+      <div class="toolGroup viewerOnly" role="group" aria-label="Display">
+        <button id="btnLayoutStack" class="btn toggle active" title="Stack view">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="14" height="14" rx="2"/></svg>
+          <span>Stack</span>
+        </button>
+        <button id="btnLayoutGrid" class="btn toggle" disabled title="Grid view">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="7" height="7" rx="1"/><rect x="11" y="2" width="7" height="7" rx="1"/><rect x="2" y="11" width="7" height="7" rx="1"/><rect x="11" y="11" width="7" height="7" rx="1"/></svg>
+          <span>Grid</span>
+        </button>
+        <div class="selectWrap">
+          <select id="gridSizeSelect" class="uiSelect" disabled aria-label="Grid size">
+            <option value="1x1">1 &times; 1</option>
+            <option value="1x2">1 &times; 2</option>
+            <option value="2x1">2 &times; 1</option>
+            <option value="2x2" selected>2 &times; 2</option>
+            <option value="1x3">1 &times; 3</option>
+            <option value="2x3">2 &times; 3</option>
+            <option value="3x3">3 &times; 3</option>
+          </select>
+        </div>
+        <span class="sep"></span>
+        <button id="btnReset" class="btn iconOnly" title="Reset view">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4v4h-4"/><path d="M4 16v-4h4"/><path d="M4.6 8a6 6 0 0 1 10.4-3.2L16 6"/><path d="M15.4 12a6 6 0 0 1-10.4 3.2L4 14"/></svg>
+        </button>
+        <button id="btnInvert" class="btn iconOnly" title="Invert grayscale">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="10" cy="10" r="7"/><path d="M10 3a7 7 0 0 1 0 14z" fill="currentColor" stroke="none"/></svg>
+        </button>
+        <div class="selectWrap">
+          <select id="presetSelect" class="uiSelect" aria-label="Window preset">
+            <option value="">Default W/L</option>
+            <option value="soft">Soft Tissue</option>
+            <option value="lung">Lung</option>
+            <option value="bone">Bone</option>
+            <option value="brain">Brain</option>
+          </select>
+        </div>
+        <span class="sep"></span>
+        <button id="btn3D" class="btn" title="Open this study in the 3D volume viewer">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2l7 4v8l-7 4-7-4V6z"/><path d="M3 6l7 4 7-4M10 10v8"/></svg>
+          <span>3D</span>
+        </button>
+      </div>
+
+      <div class="menu toolGroup viewerOnly" role="group" aria-label="Tools">
+        <button id="btnTools" class="btn menuTrigger" aria-haspopup="true" aria-expanded="false" title="Tools">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="4" r="1.4"/><circle cx="10" cy="10" r="1.4"/><circle cx="10" cy="16" r="1.4"/></svg>
+          <span>Tools</span>
+          <svg class="chev" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8l4 4 4-4"/></svg>
+        </button>
+        <div id="toolsMenu" class="menuPanel hidden" role="menu">
+          <button id="btnMenuStack" class="menuItem" role="menuitem">
+            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="14" height="14" rx="2"/></svg>
+            <span>Stack View (single image)</span>
+          </button>
+          <div class="menuDivider"></div>
+          <button id="btnLundMackay" class="menuItem" role="menuitem">
+            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="12" height="15" rx="2"/><rect x="7" y="1.3" width="6" height="3" rx="1"/><path d="M7 9.5h6M7 12.5h6M7 15.5h3"/></svg>
+            <span>Lund-Mackay Report</span>
+          </button>
+          <button id="btnAiNote" class="menuItem" role="menuitem">
+            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M13 3.5v10.5a3 3 0 0 1-6 0V6a2 2 0 1 1 4 0v7.5a1 1 0 1 1-2 0V7"/></svg>
+            <span>AI Quick Read</span>
+          </button>
+          <div class="menuDivider"></div>
+          <button id="btnExportPng" class="menuItem" role="menuitem">
+            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 13v3a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-3"/><path d="M10 3v9M6.5 8.5L10 12l3.5-3.5"/></svg>
+            <span>Export Image (PNG)</span>
+          </button>
+          <button id="btnCopyImage" class="menuItem" role="menuitem">
+            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="7" width="10" height="10" rx="1.5"/><path d="M13 7V4.5a1.5 1.5 0 0 0-1.5-1.5h-7A1.5 1.5 0 0 0 3 4.5v7A1.5 1.5 0 0 0 4.5 13H7"/></svg>
+            <span>Copy Image (Ctrl+C)</span>
+          </button>
+          <div class="menuDivider"></div>
+          <button id="btnSendArchive" class="menuItem" role="menuitem">
+            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 12v3a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-3"/><path d="M10 12V3M6.5 6.5L10 3l3.5 3.5"/></svg>
+            <span>Send to Archive</span>
+          </button>
+          <button id="btnBackup" class="menuItem" role="menuitem">
+            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v3a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-3"/><path d="M10 3v9M6.5 8.5L10 12l3.5-3.5"/></svg>
+            <span>Backup &amp; Restore</span>
+          </button>
+        </div>
+      </div>
+
+    </header>
+
+    <div id="worklist">
+      <div id="worklistMain">
+      <div id="worklistHeader">
+        <div class="worklistTitle">
+          <span class="worklistEyebrow">Hounsfield &middot; CT Workstation</span>
+          <div class="worklistTitleRow">
+            <h1>Worklist</h1>
+            <span id="worklistCount" class="countPill">0</span>
+          </div>
+        </div>
+        <div class="worklistActions">
+          <div class="worklistSearch">
+            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="9" r="6"/><path d="M14 14l4 4"/></svg>
+            <input id="worklistFilter" type="text" placeholder="Search patient, ID, modality, or description..." />
+          </div>
+          <label class="btn btn-primary" for="fileInput2">Open Files</label>
+          <input id="fileInput2" type="file" accept=".dcm,application/dicom" multiple hidden />
+          <button id="worklistSamples" class="btn">Load Sample Studies</button>
+          <button id="worklistPacs" class="btn">Query PACS</button>
+        </div>
+      </div>
+      <div id="worklistTableWrap">
+        <table id="worklistTable">
+          <thead>
+            <tr>
+              <th>Patient Name</th>
+              <th>Patient ID</th>
+              <th>Modality</th>
+              <th>Series</th>
+              <th>Images</th>
+              <th>Study Date</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="worklistBody"></tbody>
+        </table>
+        <div id="worklistEmpty" class="worklistEmpty">
+          <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="9" width="34" height="30" rx="3"/><path d="M7 17h34M14 25h14M14 31h20"/></svg>
+          <div class="worklistEmptyTitle">No studies yet</div>
+          <div class="worklistEmptySub">Open DICOM files, load the sample studies, or query a PACS location, to add studies to the worklist.</div>
+        </div>
+      </div>
+      </div>
+      <aside id="worklistBrand">
+        <div class="brandPanelInner">
+          <img class="worklistBrandLogo" src="logo.png" alt="Hounsfield Biomedical Imaging" />
+          <div class="filmstrip" aria-hidden="true"><div class="filmstripTrack"></div></div>
+          <div class="huScale" aria-hidden="true">
+            <div class="huScaleRow">
+              <span class="huNum">&minus;1000</span>
+              <span class="huNum huNumMid">0</span>
+              <span class="huNum huNumEnd">+1000</span>
+            </div>
+            <div class="huBar"></div>
+            <div class="huLabels">
+              <span>Air</span><span>Water</span><span>Bone</span>
+            </div>
+          </div>
+          <div class="huCaption">Sir Godfrey Hounsfield's scale of radiodensity &mdash; the measure this practice is named for.</div>
+        </div>
+      </aside>
+    </div>
+
+    <div id="main">
+      <aside id="sidebar">
+        <div id="patientBox">
+          <h3>Patients <span id="patientCount" class="countPill">0</span></h3>
+          <ul id="patientList"></ul>
+          <div id="patientEmpty" class="sideEmpty">No saved patients yet. Load DICOM files to add them.</div>
+        </div>
+        <div id="listBox">
+          <h3>Series <span id="fileCount" class="countPill">0</span></h3>
+          <ul id="fileList"></ul>
+        </div>
+        <div id="metaBox">
+          <h3>Metadata</h3>
+          <table id="metaTable"></table>
+        </div>
+      </aside>
+
+      <div id="sidebarRail">
+        <button id="sidebarToggle" title="Hide panel" aria-label="Toggle side panel">
+          <svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 1.5L3 5l3.5 3.5"/></svg>
+        </button>
+      </div>
+
+      <div id="viewportWrap">
+        <div id="dropHint">
+          <svg viewBox="0 0 48 48" class="dropIcon" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M24 30V8M16 16l8-8 8 8"/><path d="M8 30v6a4 4 0 0 0 4 4h24a4 4 0 0 0 4-4v-6"/></svg>
+          <div class="dropTitle">Drop DICOM files or a folder here</div>
+          <div class="dropSub">or use Files / Folder above</div>
+        </div>
+
+        <div id="stackView">
+          <canvas id="viewport"></canvas>
+          <div id="overlayTL" class="overlay"></div>
+          <div id="overlayTR" class="overlay"></div>
+          <div id="overlayBL" class="overlay"></div>
+          <div id="overlayBR" class="overlay"></div>
+          <div id="stackHu" class="huReadout hidden"></div>
+        </div>
+
+        <div id="mprGrid" class="hidden"></div>
+
+        <div id="scrubber" class="hidden">
+          <button id="scrubPrev" class="scrubBtn" title="Previous slice">‹</button>
+          <button id="cinePlay" class="scrubBtn cinePlay" title="Play / pause (cine)">▶</button>
+          <button id="scrubNext" class="scrubBtn" title="Next slice">›</button>
+          <input id="scrubSlider" type="range" min="0" max="0" value="0" step="1" />
+          <span id="scrubLabel">0 / 0</span>
+          <select id="cineSpeed" class="cineSpeed" title="Cine speed">
+            <option value="6">6 fps</option>
+            <option value="12" selected>12 fps</option>
+            <option value="20">20 fps</option>
+            <option value="30">30 fps</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <footer id="statusBar">
+      <span class="statusBrand">Hounsfield</span>
+      <span id="status" class="label"></span>
+      <span class="statusWatermark">Powered by Orthanc</span>
+    </footer>
+  </div>
+
+  <div id="lmModal" class="modal hidden">
+    <div class="modalBackdrop"></div>
+    <div class="modalPanel">
+      <div class="modalHeader">
+        <h2>CT Sinus Report — Lund-Mackay</h2>
+        <button id="lmClose" class="btn">Close</button>
+      </div>
+      <div class="modalBody">
+        <div class="lmWarning">
+          Documentation aid — not a diagnostic device. The generated report is a <strong>draft</strong>: its
+          Findings and Impression are drafted mechanically from the entered scores (some of which may be
+          unvalidated AI suggestions), not from an independent read of the images. The interpreting physician
+          must review the images, edit the report, and sign it before it is used for patient care or entered
+          into the medical record.
+        </div>
+
+        <div id="lmPatientContext" class="patientContextBar"></div>
+
+        <table id="lmTable" class="lmTable">
+          <thead>
+            <tr><th>Region</th><th>Left</th><th>Right</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+
+        <div class="lmTotals">
+          <span>Left total: <b id="lmLeftTotal">0</b></span>
+          <span>Right total: <b id="lmRightTotal">0</b></span>
+          <span>Total score: <b id="lmGrandTotal">0</b> / 24</span>
+        </div>
+
+        <div class="lmActions">
+          <button id="lmAiSuggest" class="btn">AI Suggest (experimental)</button>
+          <button id="lmApiKeyBtn" class="btn">API Key</button>
+          <button id="lmGenerate" class="btn btn-primary">Generate Report</button>
+          <button id="lmClear" class="btn btn-danger">Clear</button>
+        </div>
+        <div id="lmStatus" class="lmStatus"></div>
+
+        <div id="lmApiKeyBox" class="lmApiKeyBox hidden">
+          <label for="lmApiKeyInput">Anthropic API key — stored only in this browser's local storage, sent only to api.anthropic.com:</label>
+          <input id="lmApiKeyInput" type="password" placeholder="sk-ant-..." />
+          <button id="lmApiKeySave" class="btn btn-primary">Save</button>
+        </div>
+
+        <textarea id="lmReportOutput" class="lmReportOutput" placeholder="Click &quot;Generate Report&quot; to produce an editable draft report here."></textarea>
+        <div class="lmActions">
+          <button id="lmCopyReport" class="btn">Copy Report</button>
+          <button id="lmDownloadReport" class="btn">Download .txt</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="aiNoteModal" class="modal hidden">
+    <div class="modalBackdrop"></div>
+    <div class="modalPanel modalPanelNote">
+      <div class="modalHeader">
+        <h2>AI Quick Read</h2>
+        <button id="aiNoteClose" class="btn">Close</button>
+      </div>
+      <div class="modalBody">
+        <div class="lmWarning">
+          Unvalidated AI impression, for quick orientation only — not a diagnosis. The interpreting
+          physician must review the images independently.
+        </div>
+
+        <div id="aiNotePatientContext" class="patientContextBar"></div>
+
+        <div class="lmActions">
+          <button id="aiNoteGenerate" class="btn btn-primary">Generate Note</button>
+          <button id="aiNoteApiKeyBtn" class="btn">API Key</button>
+          <button id="aiNoteClear" class="btn btn-danger">Clear</button>
+        </div>
+        <div id="aiNoteApiKeyBox" class="lmApiKeyBox hidden">
+          <label for="aiNoteApiKeyInput">Anthropic API key — stored only in this browser's local storage, sent only to api.anthropic.com:</label>
+          <input id="aiNoteApiKeyInput" type="password" placeholder="sk-ant-..." />
+          <button id="aiNoteApiKeySave" class="btn btn-primary">Save</button>
+        </div>
+        <div id="aiNoteStatus" class="lmStatus"></div>
+
+        <div id="aiNoteCard" class="clipNote hidden">
+          <div class="clipNoteHeader">
+            <svg class="clipNoteIcon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M13 3.5v10.5a3 3 0 0 1-6 0V6a2 2 0 1 1 4 0v7.5a1 1 0 1 1-2 0V7"/></svg>
+            AI's Quick Take
+          </div>
+          <ul id="aiNoteList" class="lmReadList"></ul>
+          <div id="aiNoteImpression" class="lmReadImpression"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="backupModal" class="modal hidden">
+    <div class="modalBackdrop"></div>
+    <div class="modalPanel">
+      <div class="modalHeader">
+        <h2>Backup &amp; Restore</h2>
+        <button id="backupClose" class="btn">Close</button>
+      </div>
+      <div class="modalBody">
+        <div class="lmWarning">
+          Everything here — saved patients, their scans, and surgery videos — lives only in this browser, on
+          this computer. To move it to another computer: Export here, copy the downloaded file over (USB
+          drive, email, cloud folder), then open this app there and Import it.
+        </div>
+
+        <label class="label" for="backupPassword">Backup password (protects patient data in the file — required, and needed again to import)</label>
+        <input id="backupPassword" type="password" placeholder="Choose a password for this backup" autocomplete="new-password" />
+
+        <div class="lmActions">
+          <button id="backupExport" class="btn btn-primary">Export Everything (Encrypted)</button>
+        </div>
+
+        <div class="lmActions">
+          <label class="btn" for="backupImportInput">Choose Backup File...</label>
+          <input id="backupImportInput" type="file" accept=".dvbackup" hidden />
+          <button id="backupImport" class="btn btn-primary" disabled>Import</button>
+        </div>
+
+        <div id="backupStatus" class="lmStatus"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="videoModal" class="sideDock hidden">
+    <div class="sideDockHeader">
+      <span class="sideDockTitle">Surgery Videos</span>
+      <div class="sideDockControls">
+        <button id="videoPin" class="dockBtn" title="Pin open beside the scan">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3v7M10 14v3M6 7l4-4 4 4M6 10h8"/></svg>
+        </button>
+        <button id="videoBlowUp" class="dockBtn" title="Blow up to full screen">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8V4h4M16 8V4h-4M4 12v4h4M16 12v4h-4"/></svg>
+        </button>
+        <button id="videoClose" class="dockBtn" title="Close">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 5l10 10M15 5L5 15"/></svg>
+        </button>
+      </div>
+    </div>
+      <div class="modalBody sideDockBody">
+        <div class="lmWarning">
+          Patient-education library — these are general procedure templates to show patients before a
+          surgery, not footage of a specific patient's own procedure.
+        </div>
+
+        <div class="videoUploadRow">
+          <input id="videoFolderInput" type="text" list="videoFolderDatalist"
+            placeholder="Folder / procedure (e.g. FESS, Septoplasty) — applies to files without a folder of their own" />
+          <datalist id="videoFolderDatalist"></datalist>
+          <label class="btn btn-primary" for="videoFileInput">Choose Video File(s)</label>
+          <input id="videoFileInput" type="file" accept="video/*" multiple hidden />
+          <label class="btn" for="videoFolderFileInput">Upload Folder</label>
+          <input id="videoFolderFileInput" type="file" webkitdirectory multiple hidden />
+        </div>
+
+        <div id="videoDropZone" class="videoDropZone">
+          <svg viewBox="0 0 40 40" class="videoDropIcon" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="9" width="22" height="22" rx="2"/><path d="M26 16l10-6v20l-10-6"/></svg>
+          <div>Drop video files or a folder here — bulk uploads are fine</div>
+        </div>
+        <div id="videoUploadStatus" class="lmStatus"></div>
+
+        <video id="videoPlayer" class="videoPlayer hidden" controls></video>
+
+        <div class="videoBrowser">
+          <div class="videoFolderPane">
+            <div class="videoFolderPaneTitle">Folders</div>
+            <ul id="videoFolderNav" class="videoFolderNav"></ul>
+          </div>
+          <div class="videoMainPane">
+            <input id="videoFilterInput" type="text" placeholder="Search this folder..." />
+            <ul id="videoList" class="videoGrid"></ul>
+            <div id="videoEmpty" class="sideEmpty">No surgery videos stored yet.</div>
+          </div>
+        </div>
+      </div>
+  </div>
+
+  <div id="pacsModal" class="modal hidden">
+    <div class="modalBackdrop"></div>
+    <div class="modalPanel">
+      <div class="modalHeader">
+        <h2>Connect to PACS (DICOMweb)</h2>
+        <button id="pacsClose" class="btn">Close</button>
+      </div>
+      <div class="modalBody">
+        <div class="lmWarning">
+          <strong>This is optional.</strong> If you don't have a PACS server, just close this and use
+          "Files" / "Folder" in the toolbar, or drag &amp; drop DICOM files onto the viewport instead.<br/><br/>
+          This connects over DICOMweb (QIDO-RS / WADO-RS), not classic DICOM C-FIND/C-MOVE. Your PACS admin needs to
+          give you the QIDO-RS/WADO-RS base URL(s), enable CORS for this app's origin on the PACS/gateway, and
+          provide credentials if required. Nothing here works until that's configured on their end.
+        </div>
+
+        <div class="pacsSection">
+          <h3>Locations</h3>
+          <div class="pacsLocRow">
+            <div class="selectWrap pacsLocSelectWrap">
+              <select id="pacsLocations" class="uiSelect"></select>
+            </div>
+            <button id="pacsLocDelete" class="btn btn-danger">Delete</button>
+          </div>
+        </div>
+
+        <div class="pacsSection">
+          <h3>Connection</h3>
+          <label>Location name</label>
+          <input id="pacsLocName" type="text" placeholder="e.g. This Office, Other Office" />
+          <label>QIDO-RS base URL (search)</label>
+          <input id="pacsQidoUrl" type="text" placeholder="https://pacs.example.org/dicomweb" />
+          <label>WADO-RS base URL (retrieve) — leave blank to reuse the QIDO-RS URL</label>
+          <input id="pacsWadoUrl" type="text" placeholder="https://pacs.example.org/dicomweb" />
+          <label>Authentication</label>
+          <select id="pacsAuthType" class="btn">
+            <option value="none">None</option>
+            <option value="basic">Basic (username/password)</option>
+            <option value="bearer">Bearer token</option>
+          </select>
+          <div id="pacsBasicFields" class="pacsAuthFields hidden">
+            <input id="pacsUsername" type="text" placeholder="Username" />
+            <input id="pacsPassword" type="password" placeholder="Password" />
+          </div>
+          <div id="pacsBearerFields" class="pacsAuthFields hidden">
+            <input id="pacsToken" type="password" placeholder="Bearer token" />
+          </div>
+          <button id="pacsSaveConnection" class="btn btn-primary">Save Location</button>
+        </div>
+
+        <div class="pacsSection">
+          <h3>Search</h3>
+          <div class="pacsSearchGrid">
+            <input id="pacsPatientName" type="text" placeholder="Patient name" />
+            <input id="pacsPatientId" type="text" placeholder="Patient ID" />
+            <input id="pacsStudyDate" type="text" placeholder="Study date (YYYYMMDD or range)" />
+            <input id="pacsAccession" type="text" placeholder="Accession number" />
+            <select id="pacsModality" class="btn">
+              <option value="">Any modality</option>
+              <option value="CT">CT</option>
+              <option value="MR">MR</option>
+              <option value="CR">CR</option>
+              <option value="DX">DX</option>
+              <option value="US">US</option>
+              <option value="XA">XA</option>
+            </select>
+            <button id="pacsSearch" class="btn btn-primary">Search</button>
+          </div>
+        </div>
+
+        <div id="pacsStatus" class="lmStatus"></div>
+
+        <table id="pacsResults" class="lmTable pacsResults">
+          <thead>
+            <tr><th>Patient</th><th>ID</th><th>Date</th><th>Description</th><th>Mod.</th><th></th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div id="loadingOverlay" class="loadingOverlay hidden">
+    <div class="loadingCard">
+      <div class="loadingGantry" aria-hidden="true">
+        <div class="loadingGantryLogo"><img src="logo-mark.png" alt="" /></div>
+      </div>
+      <div class="loadingLabel" id="loadingLabel">Initializing scan</div>
+      <div class="loadingBarTrack">
+        <div class="loadingBarFill" id="loadingBarFill"></div>
+      </div>
+      <div class="loadingPct" id="loadingPct"></div>
+      <div class="loadingWhy" id="loadingWhy"></div>
+    </div>
+  </div>
+
+  <div id="lockScreen" class="lockScreen hidden">
+    <div class="lockCard">
+      <img class="lockLogo" src="logo-mark.png" alt="Hounsfield" />
+      <div class="lockEyebrow">Hounsfield &middot; CT Workstation</div>
+      <div class="lockTitle">Session Locked</div>
+      <div class="lockSub">Locked after inactivity to protect patient information. No data is shown until you resume.</div>
+      <button id="lockResume" class="btn btn-primary">Resume Session</button>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/dicom-parser@1.8.21/dist/dicomParser.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

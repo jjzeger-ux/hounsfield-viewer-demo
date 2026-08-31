@@ -1,0 +1,1639 @@
+/* ---------- Loading overlay (fetching/parsing/decoding a study) ----------
+   Deliberately always dark, regardless of the light/dark chrome scope below —
+   it sits on top of whichever page triggered it (worklist or viewer) and
+   should read as "the reading room is working," not blend into either page. */
+.loadingOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 400;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(8, 8, 10, 0.72);
+  backdrop-filter: blur(2px);
+}
+.loadingOverlay.hidden { display: none; }
+.loadingCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 32px 40px;
+  min-width: 340px;
+  background: #141412;
+  border: 1px solid #3f3a2d;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.6);
+}
+
+/* A rotating gantry sweep around the mark — literal, since this is a CT gantry
+   rotating around the patient. The one moment this app spends real motion on. */
+.loadingGantry { position: relative; width: 60px; height: 60px; margin-bottom: 4px; }
+.loadingGantry::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: conic-gradient(from 0deg, transparent 0deg, #c9a54a 18deg, transparent 60deg);
+  animation: gantrySweep 1.4s linear infinite;
+}
+.loadingGantry::after {
+  content: '';
+  position: absolute;
+  inset: 5px;
+  border-radius: 50%;
+  background: #141412;
+  box-shadow: 0 0 0 1px #2a2818;
+}
+.loadingGantryLogo { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+.loadingGantryLogo img { width: 28px; height: 28px; }
+@keyframes gantrySweep { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .loadingGantry::before { animation: none; opacity: 0.7; }
+}
+
+.loadingLabel {
+  font-family: 'IBM Plex Serif', serif;
+  font-size: 16px;
+  font-weight: 400;
+  color: #ece9e1;
+  text-align: center;
+}
+.loadingWhy {
+  max-width: 280px;
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: #837c68;
+  text-align: center;
+}
+.loadingWhy:empty { display: none; }
+.loadingBarTrack {
+  width: 100%;
+  height: 6px;
+  background: #26241d;
+  border: 1px solid #3f3a2d;
+  overflow: hidden;
+}
+.loadingBarFill {
+  height: 100%;
+  width: 0%;
+  background: #c9a54a;
+  transition: width 0.15s ease;
+}
+.loadingBarFill.indeterminate {
+  width: 40% !important;
+  animation: loadingIndeterminate 1.1s ease-in-out infinite;
+}
+@keyframes loadingIndeterminate {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(250%); }
+}
+.loadingPct {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  color: #a8a396;
+  letter-spacing: 0.02em;
+}
+
+/* ---------- Session lock (auto-logoff) ----------
+   Same paper masthead treatment as the worklist — eyebrow, serif headline, the
+   mark up top — so the one moment that stops you from working reads as
+   deliberate design, not a leftover system dialog. */
+.lockScreen {
+  position: fixed;
+  inset: 0;
+  z-index: 500;                 /* above every panel, modal, and the dock */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-1);      /* fully opaque — hides all PHI behind it */
+  color: var(--text);           /* re-anchors inheritance for the paper scope below */
+}
+.lockScreen.hidden { display: none; }
+.lockCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  text-align: center;
+  padding: 48px 52px;
+  max-width: 380px;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-lg);
+}
+.lockLogo { height: 38px; width: auto; margin-bottom: 4px; }
+.lockEyebrow {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.lockTitle {
+  margin-top: 2px;
+  font-family: var(--font-serif);
+  font-size: 28px;
+  font-weight: 400;
+  letter-spacing: -0.015em;
+  color: var(--text);
+}
+.lockSub { max-width: 300px; font-size: 13px; color: var(--text-dim); line-height: 1.6; }
+.lockCard .btn-primary { margin-top: 10px; padding: 10px 26px; font-size: 13.5px; }
+
+:root {
+  /* Hounsfield — black & gold. Near-black warm-neutral grounds with a
+     restrained antique-gold accent; square corners: premium console styling. */
+  --bg-0: #08080a;
+  --bg-1: #0e0e0f;
+  --bg-2: #141412;
+  --bg-3: #1c1b17;
+  --bg-4: #26241d;
+  --bg-5: #322f24;
+  --border: #262420;
+  --border-strong: #3f3a2d;
+  --text: #ece9e1;
+  --text-dim: #a8a396;
+  --text-faint: #6f6a5c;
+  /* Calm, muted gold — matched to the actual logo mark's tone, not a bright
+     saturated "AI gold." Reads as brushed metal, not a highlighter. */
+  --accent: #b89a68;
+  --accent-2: #9c7f52;
+  --accent-strong: #cbb488;
+  --accent-bg: #2b2412;
+  --accent-border: #5c4f36;
+  --accent-gradient: #b89a68; /* flat — no gradients anywhere */
+  --ok: #6a9a5a;
+  --warn: #cf9440;
+  --warn-bg: #2e2410;
+  --warn-border: #5a481f;
+  --err: #c46a5a;
+  --mono-accent: #c7ac82;
+  /* Near-zero radius everywhere — an instrument panel, not a card-based SaaS
+     surface. Shadow is not banned, though: used sparingly (a control that has
+     real physical presence, not every panel) it's what separates "premium" from
+     "flat" on a dark ground — Linear and Vercel lean on it too. */
+  --radius: 2px;
+  --radius-sm: 2px;
+  --radius-xs: 1px;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.4), 0 6px 16px -4px rgba(0,0,0,0.5);
+  --shadow-md: 0 2px 4px rgba(0,0,0,0.35), 0 12px 28px -6px rgba(0,0,0,0.55);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.55);
+  --glow-accent: 0 0 0 1px var(--accent-border);
+  --ease-premium: cubic-bezier(0.4, 0, 0.2, 1);
+  --row-stripe: rgba(255,255,255,0.015);
+  --font-sans: 'IBM Plex Sans', 'Segoe UI', -apple-system, Roboto, Arial, sans-serif;
+  --font-mono: 'IBM Plex Mono', Consolas, ui-monospace, monospace;
+  /* Reserved for masthead moments only — the worklist title and the brand panel.
+     Everywhere else stays sans/mono; this is the one place the page raises its voice. */
+  --font-serif: 'IBM Plex Serif', Georgia, 'Times New Roman', serif;
+}
+
+* { box-sizing: border-box; }
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg-1);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 13.5px;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+svg { display: block; flex-shrink: 0; }
+
+#app { display: flex; flex-direction: column; height: 100%; position: relative; }
+
+/* Fine film grain over the whole app — the near-black surfaces read as flat
+   plastic without it; a trace of texture makes them feel like a physical
+   instrument panel instead of a solid CSS fill. Static, not animated: texture,
+   not motion — the filmstrip below is where the motion budget goes. */
+#app::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  opacity: 0.05;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
+}
+
+/* ---------- Toolbar ---------- */
+
+#toolbar {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  padding: 0 12px;
+  background: var(--bg-2);
+  color: var(--text); /* re-anchors inheritance so .onWorklist's scoped tokens actually apply */
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  position: relative;
+}
+
+/* Just the H mark here — solid gold throughout (no ink details), so it reads
+   cleanly on this toolbar whichever surface it's currently sitting on (light
+   while browsing, dark while reading). No plate or background trick needed. */
+#brand {
+  display: flex;
+  align-items: center;
+  padding-right: 14px;
+  margin-right: 6px;
+  border-right: 1px solid var(--border);
+}
+.brandLogo {
+  height: 34px;
+  width: auto;
+  display: block;
+}
+
+/* Ribbon sections: flat clusters separated by hairline dividers, no decorative
+   section captions — the icon + label on each control already says what it does. */
+.toolGroup {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 5px 10px;
+}
+.toolGroup + .toolGroup { border-left: 1px solid var(--border); }
+
+/* Stack view is tucked into the Tools menu; the doctor works in the MPR grid */
+#btnLayoutStack { display: none; }
+.toolGroup .sep { height: 20px; margin: 0 3px; }
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-dim);
+  padding: 7px 12px;
+  border-radius: var(--radius-xs);
+  cursor: pointer;
+  font: 500 12.5px/1 var(--font-sans);
+  letter-spacing: 0.005em;
+  white-space: nowrap;
+  transition: background 0.18s var(--ease-premium), border-color 0.18s var(--ease-premium), color 0.18s var(--ease-premium);
+}
+.btn svg { width: 16px; height: 16px; opacity: 0.92; }
+.btn:hover { background: var(--bg-4); color: var(--text); }
+.btn:active { transform: translateY(0.5px); }
+.btn:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--accent-border); }
+.btn.iconOnly { padding: 7px; }
+
+/* Modal selects still use .btn styling */
+select.btn { padding: 6px 8px; background: var(--bg-3); border-color: var(--border); color: var(--text); }
+select.btn:hover { background: var(--bg-4); }
+
+/* Custom-styled native selects in the toolbar (grid size, window preset) */
+.selectWrap { position: relative; display: inline-flex; align-items: center; }
+.selectWrap::after {
+  content: '';
+  position: absolute;
+  right: 10px;
+  width: 6px; height: 6px;
+  border-right: 1.6px solid var(--text-dim);
+  border-bottom: 1.6px solid var(--text-dim);
+  transform: rotate(45deg) translateY(-1px);
+  pointer-events: none;
+}
+.uiSelect {
+  appearance: none;
+  -webkit-appearance: none;
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 7px 28px 7px 11px;
+  border-radius: var(--radius-xs);
+  font: 500 12.5px/1 var(--font-sans);
+  cursor: pointer;
+  transition: background 0.14s ease, border-color 0.14s ease;
+}
+.uiSelect:hover { background: var(--bg-4); border-color: var(--border-strong); }
+.uiSelect:focus-visible { outline: none; border-color: var(--accent-border); box-shadow: 0 0 0 2px var(--accent-border); }
+.uiSelect:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* Dropdown menu (Tools) */
+.menu { position: relative; }
+.menuTrigger .chev { width: 13px; height: 13px; opacity: 0.7; margin-left: -3px; transition: transform 0.16s ease; }
+.menuTrigger[aria-expanded="true"] { background: var(--bg-4); color: var(--text); }
+.menuTrigger[aria-expanded="true"] .chev { transform: rotate(180deg); }
+.menuPanel {
+  position: absolute;
+  top: calc(100% + 7px);
+  right: 0;
+  z-index: 60;
+  min-width: 216px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 6px;
+  background: var(--bg-3);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-md);
+}
+.menuPanel.hidden { display: none; }
+.menuItem {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  padding: 9px 11px;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-xs);
+  color: var(--text-dim);
+  font: 500 12.5px/1 var(--font-sans);
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+.menuItem svg { width: 16px; height: 16px; color: var(--text-faint); flex-shrink: 0; }
+.menuItem:hover { background: var(--accent-bg); color: #fff; }
+.menuItem:hover svg { color: var(--accent-strong); }
+.menuDivider { height: 1px; background: var(--border); margin: 5px 4px; }
+
+/* Buttons/inputs that live outside a .toolGroup (modals) keep a visible resting state */
+.modalBody .btn, .pacsSection .btn { background: var(--bg-4); border: 1px solid var(--border-strong); color: var(--text); }
+.modalBody .btn:hover, .pacsSection .btn:hover { background: var(--bg-5); }
+
+.btn-primary {
+  background: var(--accent-gradient) !important;
+  border-color: transparent !important;
+  color: #17140b !important;   /* dark text reads far better on gold than white */
+  font-weight: 700;
+  /* The one control on the page allowed real physical lift — a call to action
+     should feel like it's sitting slightly above the surface, not painted on it. */
+  box-shadow: 0 1px 2px rgba(0,0,0,0.3), 0 6px 16px -6px rgba(184,154,104,0.4);
+  transition: filter 0.18s var(--ease-premium), transform 0.18s var(--ease-premium), box-shadow 0.18s var(--ease-premium);
+}
+.btn-primary:hover { filter: brightness(1.08); transform: translateY(-1px); box-shadow: 0 2px 4px rgba(0,0,0,0.35), 0 10px 22px -6px rgba(184,154,104,0.5); }
+.btn-primary:active { transform: translateY(0); }
+
+.btn-danger {
+  background: transparent !important;
+  border-color: var(--border-strong) !important;
+  color: var(--err) !important;
+}
+.btn-danger:hover { background: rgba(240,104,95,0.12) !important; border-color: var(--err) !important; }
+
+.btn.toggle.active {
+  background: var(--accent-bg);
+  border-color: var(--accent-border);
+  color: #fff;
+}
+.btn.toggle.active:hover { background: #14403c; }
+.btn:disabled { opacity: 0.35; cursor: not-allowed; }
+.btn:disabled:hover { background: transparent; }
+
+.sep { width: 1px; height: 22px; background: var(--border); margin: 0 2px; flex-shrink: 0; }
+.label { color: var(--text-dim); font-size: 12px; }
+
+/* ---------- Bottom status bar ---------- */
+
+#statusBar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 26px;
+  padding: 0 12px;
+  background: var(--bg-2);
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--text-faint);
+}
+.statusBrand { font-weight: 600; letter-spacing: 0.04em; color: var(--text-dim); }
+
+#status {
+  margin-left: 14px;
+  font-size: 11.5px;
+  color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 45vw;
+}
+/* Quiet engine-attribution watermark, pinned to the far right — plain mono text,
+   no tracked-caps treatment, so it reads as a footnote rather than a badge. */
+.statusWatermark {
+  margin-left: auto;
+  padding-left: 14px;
+  font-size: 12px;
+  color: var(--text-faint);
+  font-family: var(--font-serif);
+  font-style: italic;
+  white-space: nowrap;
+}
+#status.status-ok { color: var(--ok); }
+#status.status-warn { color: var(--warn); }
+#status.status-err { color: var(--err); }
+
+/* ---------- Light "paper" chrome scope ----------
+   The reading room — viewport, MPR panes, sidebar, scrubber — keeps the dark
+   instrument-panel palette defined at :root above. That's not a style choice,
+   it's how radiology reading works. Everything outside the reading room —
+   browsing the worklist, filling out a report, connecting to a PACS — is an
+   office/document task, and reads as one on a warm paper ground instead. The
+   toolbar switches between the two depending which page it's sitting above.
+   Redefining the same custom properties here means every rule below that
+   already reads var(--bg-2), var(--text), var(--accent) etc. just inherits
+   the paper values automatically — nothing else has to change. */
+#worklist,
+#toolbar.onWorklist,
+.modal,
+.lockScreen,
+#worklist:not(.hidden) ~ #statusBar {
+  --bg-0: #faf8f2;
+  --bg-1: #faf8f2;
+  --bg-2: #f6f2e9;
+  --bg-3: #efe9da;
+  --bg-4: #e6ddc7;
+  --bg-5: #d6cba8;
+  --border: #e6e0d0;
+  --border-strong: #cabf9d;
+  --text: #221f18;
+  --text-dim: #5c5748;
+  --text-faint: #8c8570;
+  --accent: #a5875b;
+  --accent-2: #8a6a3f;
+  --accent-strong: #c4a876;
+  --accent-bg: #f1ead7;
+  --accent-border: #d3bd93;
+  --accent-gradient: #ab8c5c;
+  --ok: #4f7a42;
+  --warn: #93690f;
+  --warn-bg: #fbf0d9;
+  --warn-border: #e3c98a;
+  --err: #a8402f;
+  --row-stripe: rgba(30, 24, 8, 0.035);
+}
+
+/* ---------- Worklist landing page ---------- */
+
+#worklist {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: row;
+  background: var(--bg-1);
+  color: var(--text); /* re-anchors inheritance so the paper tokens above actually apply */
+}
+#worklist.hidden { display: none; }
+#worklistMain { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+
+/* Brand panel on the right of the Studies page — the logo shown big and readable. */
+#worklistBrand {
+  flex-shrink: 0;
+  width: 360px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  border-left: 1px solid var(--border);
+  background:
+    radial-gradient(120% 80% at 50% 14%, rgba(165,135,91,0.06), transparent 60%),
+    var(--bg-0);
+}
+.brandPanelInner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 26px;
+  width: 100%;
+  max-width: 288px;
+}
+/* The full lockup — mark plus wordmark, ink text now instead of white, so it
+   sits directly on the paper background with no plate or blend-mode trick. */
+.worklistBrandLogo {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  transition: filter 0.3s ease;
+}
+.worklistBrandLogo:hover { filter: drop-shadow(0 0 14px rgba(197,168,118,0.4)); }
+
+/* A running length of film — the one place motion lives on this page. 35mm-style
+   perforations creep past at a barely-there pace, the way a strip advances
+   through a viewer: grounded in the same film heritage as the CT slices and
+   the surgery-video library, not decoration for its own sake. */
+.filmstrip {
+  position: relative;
+  width: 100%;
+  height: 16px;
+  overflow: hidden;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+.filmstripTrack {
+  position: absolute;
+  top: 0; left: 0;
+  width: calc(100% + 22px);
+  height: 100%;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='22' height='16'%3E%3Crect x='7' y='5' width='8' height='6' rx='1.5' fill='%233f3a2d'/%3E%3C/svg%3E");
+  background-repeat: repeat-x;
+  background-size: 22px 16px;
+  animation: filmScroll 5s linear infinite;
+}
+@keyframes filmScroll { to { transform: translateX(-22px); } }
+
+/* Signature: the Hounsfield scale — the grayscale density sweep the company is
+   named for (air -> water -> bone), rendered as a calibrated reference bar and
+   played as the one deliberately loud typographic moment in the whole app. */
+.huScale { width: 100%; display: flex; flex-direction: column; gap: 10px; }
+.huScaleRow { display: flex; justify-content: space-between; align-items: baseline; }
+.huNum {
+  font-family: var(--font-serif);
+  font-size: 25px;
+  font-weight: 400;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+.huNumMid { font-size: 34px; font-weight: 600; color: var(--accent-strong); }
+.huNumEnd { text-align: right; }
+.huBar {
+  position: relative;
+  height: 8px;
+  border-radius: 1px;
+  overflow: hidden;
+  background: linear-gradient(90deg,
+    #0b0b0b 0%, #262626 22%, #545454 46%, #8f8f8f 66%, #cfcfcf 84%, #f2f2f2 100%);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08);
+}
+/* A light sweep on hover — the reference bar reacting like film held up to a
+   viewbox, not a static swatch. */
+.huBar::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, transparent 40%, rgba(255,255,255,0.55) 50%, transparent 60%);
+  transform: translateX(-140%);
+  transition: transform 0.7s ease;
+}
+.huScale:hover .huBar::after { transform: translateX(140%); }
+.huLabels {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+.huCaption {
+  margin-top: 4px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--text-dim);
+}
+/* On narrow screens the table needs the room — hide the brand panel. */
+@media (max-width: 1000px) { #worklistBrand { display: none; } }
+
+/* One orchestrated entrance for the whole landing page, in reading order —
+   masthead, then the search/actions, then the table, then the brand panel
+   last. Everything else on the page holds still; this is the one moment. */
+@keyframes wlIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+.worklistEyebrow, .worklistTitleRow, .worklistActions, #worklistTableWrap, #worklistBrand .brandPanelInner > * {
+  animation: wlIn 0.55s cubic-bezier(0.2, 0.7, 0.3, 1) both;
+}
+.worklistEyebrow { animation-delay: 0s; }
+.worklistTitleRow { animation-delay: 0.06s; }
+.worklistActions { animation-delay: 0.12s; }
+#worklistTableWrap { animation-delay: 0.18s; }
+#worklistBrand .brandPanelInner > *:nth-child(1) { animation-delay: 0.22s; }
+#worklistBrand .brandPanelInner > *:nth-child(2) { animation-delay: 0.28s; }
+#worklistBrand .brandPanelInner > *:nth-child(3) { animation-delay: 0.34s; }
+#worklistBrand .brandPanelInner > *:nth-child(4) { animation-delay: 0.4s; }
+
+#worklistHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 30px 32px;
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+.worklistTitle { display: flex; flex-direction: column; gap: 6px; }
+.worklistEyebrow {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 13.5px;
+  font-weight: 400;
+  letter-spacing: 0.01em;
+  color: var(--accent);
+}
+.worklistTitleRow { display: flex; align-items: center; gap: 14px; }
+/* The one masthead moment: a large serif headline, the way a journal sets its
+   section title — everything else in the app stays sans/mono and quiet. */
+.worklistTitle h1 {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: 42px;
+  font-weight: 400;
+  letter-spacing: -0.015em;
+  line-height: 1;
+}
+.worklistActions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.worklistSearch {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.worklistSearch svg { position: absolute; left: 11px; width: 15px; height: 15px; color: var(--text-faint); pointer-events: none; }
+.worklistSearch input {
+  width: 320px;
+  max-width: 46vw;
+  background: var(--bg-2);
+  border: 1px solid var(--border-strong);
+  color: var(--text);
+  padding: 9px 12px 9px 34px;
+  border-radius: 3px;
+  font: 400 13px var(--font-sans);
+  transition: border-color 0.18s var(--ease-premium), box-shadow 0.18s var(--ease-premium);
+}
+.worklistSearch input:focus-visible {
+  outline: none;
+  border-color: var(--accent-border);
+  box-shadow: 0 0 0 3px var(--accent-bg), 0 4px 14px -4px rgba(0,0,0,0.5);
+}
+
+#worklistTableWrap { flex: 1; overflow-y: auto; padding: 8px 16px 24px; }
+#worklistTable { width: 100%; border-collapse: collapse; }
+#worklistTable thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-faint);
+  padding: 12px 14px;
+  background: var(--bg-1);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+#worklistTable tbody tr {
+  cursor: pointer;
+  transition: background 0.1s ease;
+  border-bottom: 1px solid var(--border);
+}
+@keyframes wlRowIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+#worklistTable tbody tr.wlRowIn { animation: wlRowIn 0.35s ease both; }
+#worklistTable tbody tr:nth-child(even) { background: var(--row-stripe); }
+#worklistTable tbody tr:hover { background: var(--bg-3); box-shadow: inset 2px 0 0 var(--accent); }
+#worklistTable tbody td { padding: 13px 14px; font-size: 12.5px; color: var(--text-dim); vertical-align: middle; }
+/* The patient's name is the headline of the row; everything else is reference
+   data, set in mono to read as instrument output rather than prose. */
+#worklistTable tbody td.wlName { color: var(--text); font-size: 13.5px; font-weight: 600; }
+#worklistTable tbody td.wlMono { font-family: var(--font-mono); font-size: 11.5px; letter-spacing: 0.01em; }
+.wlArchiveBadge {
+  display: inline-block;
+  margin-left: 6px;
+  background: var(--bg-4);
+  border: 1px solid var(--border-strong);
+  color: var(--text-faint);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 1px 6px;
+  border-radius: var(--radius-xs);
+  vertical-align: middle;
+}
+.wlModBadge {
+  display: inline-block;
+  background: var(--accent-bg);
+  border: 1px solid var(--accent-border);
+  color: var(--accent-strong);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 1px 8px;
+  border-radius: var(--radius-xs);
+}
+.wlOpen {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  border: 1px solid var(--border-strong);
+  color: var(--text-dim);
+  padding: 5px 12px;
+  border-radius: var(--radius-xs);
+  font: 600 12px var(--font-sans);
+  cursor: pointer;
+  opacity: 0.4;
+  transition: opacity 0.12s ease, background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+}
+#worklistTable tbody tr:hover .wlOpen { opacity: 1; }
+.wlOpen:hover { background: var(--accent-gradient); border-color: transparent; color: #17140b; font-weight: 700; }
+
+.worklistEmpty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 80px 20px;
+  text-align: center;
+  color: var(--text-faint);
+}
+.worklistEmpty svg { width: 52px; height: 52px; color: var(--border-strong); margin-bottom: 8px; }
+.worklistEmptyTitle { font-size: 16px; font-weight: 600; color: var(--text-dim); }
+.worklistEmptySub { font-family: var(--font-serif); font-style: italic; font-size: 14px; color: var(--text-faint); max-width: 380px; line-height: 1.55; }
+.worklistEmpty.hidden { display: none; }
+
+/* ---------- Layout ---------- */
+
+#main { flex: 1; display: flex; min-height: 0; }
+#main.hidden { display: none; }
+#btnWorklist.active, #btnVideos.active { background: var(--accent-bg); color: var(--text); font-weight: 600; }
+#toolbar.onWorklist .viewerOnly { display: none; }
+
+#sidebar {
+  width: 272px;
+  flex-shrink: 0;
+  background: var(--bg-2);
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 0 12px 12px;
+  transition: width 0.16s ease, padding 0.16s ease;
+}
+/* Fully collapsed: the CT gets the whole width */
+#sidebar.collapsed { width: 0; padding: 0; }
+
+/* Slim splitter rail with the collapse chevron — always visible */
+#sidebarRail {
+  width: 15px;
+  flex-shrink: 0;
+  background: var(--bg-2);
+  border-right: 1px solid var(--border);
+  border-left: 1px solid var(--border);
+  display: flex;
+  align-items: stretch;
+}
+#sidebarToggle {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--text-faint);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+#sidebarToggle:hover { background: var(--bg-3); color: var(--accent-strong); }
+#sidebarToggle svg { width: 9px; height: 9px; transition: transform 0.16s ease; }
+#sidebarToggle.collapsed svg { transform: rotate(180deg); }
+
+/* Privacy: while reviewing a study, other patients' names must not be on screen.
+   The worklist (Studies page) is the only place patients are listed — the sidebar
+   shows just the open study's series and metadata. */
+#patientBox { display: none; }
+
+/* Section headers as full-bleed flat bars — sticky panel chrome */
+#sidebar h3 {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-dim);
+  margin: 0 -12px 8px;
+  padding: 8px 12px 7px 10px;
+  background: var(--bg-3);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  border-left: 2px solid var(--accent-border);
+}
+#sidebar > div:first-child h3 { border-top: none; }
+
+/* A count reads as instrument data, not a notification badge — flat bracketed
+   tag in mono, no pill fill. */
+.countPill {
+  background: none;
+  border: 1px solid var(--border-strong);
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  padding: 0px 6px;
+  border-radius: var(--radius-xs);
+}
+
+#metaTable { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+#metaTable td { padding: 6px 8px; vertical-align: top; font-size: 11.5px; line-height: 1.5; }
+#metaTable td:first-child { color: var(--text-faint); width: 44%; padding-right: 8px; }
+#metaTable td:last-child { color: var(--text); font-family: var(--font-mono); font-size: 11px; word-break: break-word; }
+#metaTable tr:not(.metaGroup) { border-bottom: 1px solid rgba(255,255,255,0.04); }
+#metaTable tr:not(.metaGroup):last-child { border-bottom: none; }
+#metaTable tr.metaGroup td {
+  padding: 14px 8px 4px;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+  border-bottom: 1px solid var(--accent-border);
+}
+#metaTable tr.metaGroup:first-child td { padding-top: 2px; }
+
+/* ---------- Series list (grouped, not per-instance) ---------- */
+
+#fileList { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.seriesRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  color: var(--text-dim);
+  border: 1px solid transparent;
+  border-left: 3px solid transparent;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+.seriesRow:hover { background: var(--bg-3); }
+.seriesRow.active {
+  background: var(--accent-bg);
+  border-color: var(--accent-border);
+  border-left-color: var(--accent-strong);
+  color: #fff;
+}
+.seriesRowIcon { width: 16px; height: 16px; margin-top: 2px; color: var(--text-faint); flex-shrink: 0; }
+.seriesRow.active .seriesRowIcon { color: var(--accent-strong); }
+.seriesRowBody { min-width: 0; flex: 1; }
+.seriesRowTitle {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: inherit;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.seriesRowMeta {
+  font-size: 11px;
+  color: var(--text-faint);
+  margin-top: 3px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.seriesRow.active .seriesRowMeta { color: #bcd3e6; }
+.seriesRowMeta .modBadge {
+  background: var(--bg-4);
+  border-radius: 3px;
+  padding: 1px 6px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.02em;
+  color: var(--text-dim);
+}
+.seriesRow.active .modBadge { background: #24466b; color: #d4e6f5; }
+
+/* ---------- Patient library list ---------- */
+
+#patientBox { margin-bottom: 24px; }
+#listBox { margin-bottom: 24px; }
+
+.sideEmpty {
+  font-size: 11.5px;
+  color: var(--text-faint);
+  line-height: 1.5;
+  padding: 2px 2px 4px;
+}
+.sideEmpty.hidden { display: none; }
+
+#patientList { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.patientRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px 9px 12px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  color: var(--text-dim);
+  border: 1px solid transparent;
+  border-left: 3px solid transparent;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+.patientRow:hover { background: var(--bg-3); }
+.patientRow.active {
+  background: var(--accent-bg);
+  border-color: var(--accent-border);
+  border-left-color: var(--accent-strong);
+  color: #fff;
+}
+.patientRowIcon { width: 17px; height: 17px; color: var(--text-faint); flex-shrink: 0; }
+.patientRow.active .patientRowIcon { color: var(--accent-strong); }
+.patientRowBody { min-width: 0; flex: 1; }
+.patientRowTitle {
+  font-size: 13px;
+  font-weight: 600;
+  color: inherit;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.patientRowMeta {
+  font-size: 11px;
+  color: var(--text-faint);
+  margin-top: 3px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.patientRow.active .patientRowMeta { color: #bcd3e6; }
+.patientRowMeta .modBadge {
+  background: var(--bg-4);
+  border-radius: 4px;
+  padding: 1px 6px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-dim);
+}
+.patientRow.active .modBadge { background: #24466b; color: #d4e6f5; }
+
+.patientDelete {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-xs);
+  color: var(--text-faint);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s ease, background 0.12s ease, color 0.12s ease;
+}
+.patientDelete svg { width: 15px; height: 15px; }
+.patientRow:hover .patientDelete { opacity: 1; }
+.patientDelete:hover { background: rgba(240,104,95,0.15); color: var(--err); }
+
+/* ---------- Viewport ---------- */
+
+#viewportWrap {
+  flex: 1;
+  position: relative;
+  background: var(--bg-0);
+  overflow: hidden;
+}
+
+#viewport { position: absolute; top: 0; left: 0; width: 100%; height: 100%; cursor: crosshair; }
+
+#stackView { position: absolute; inset: 0; }
+#stackView.hidden { display: none; }
+
+/* ---------- Slice scrubber ---------- */
+
+/* A docked transport strip, not a floating glass pill — anchored flush to the
+   viewport edge like a console control bar, solid ground, no blur. */
+#scrubber {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: var(--bg-1);
+  border-top: 1px solid var(--border-strong);
+  padding: 7px 14px;
+  z-index: 3;
+}
+#scrubber.hidden { display: none; }
+
+.scrubBtn {
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  font-size: 16px;
+  line-height: 1;
+  width: 24px;
+  height: 24px;
+  cursor: pointer;
+  border-radius: 50%;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+.scrubBtn:hover { background: var(--bg-4); color: var(--text); }
+
+#scrubSlider { width: 220px; accent-color: var(--accent); cursor: pointer; }
+
+.cinePlay.playing { color: var(--accent-strong); }
+.cineSpeed {
+  appearance: none; -webkit-appearance: none;
+  background: var(--bg-4);
+  border: 1px solid var(--border-strong);
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  padding: 3px 6px;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+#scrubLabel {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-dim);
+  min-width: 52px;
+  text-align: right;
+}
+
+/* ---------- MPR / grid panes (dynamic size) ---------- */
+
+#mprGrid {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  gap: 2px;
+  background: var(--border);
+}
+#mprGrid.hidden { display: none; }
+
+.mprPane { position: relative; background: var(--bg-0); overflow: hidden; }
+.mprPane canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; cursor: crosshair; }
+
+.paneControls {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: flex-start;
+}
+
+.paneTopRow { display: flex; gap: 4px; align-items: stretch; }
+
+.paneSelect {
+  background: rgba(17, 19, 25, 0.88);
+  border: 1px solid var(--border-strong);
+  color: var(--mono-accent);
+  font: 500 11px var(--font-mono);
+  padding: 3px 6px;
+  border-radius: var(--radius-xs);
+}
+
+/* Projection view (MIP/MinIP/Average) is opt-in: hidden until the toggle is clicked,
+   so a plain grid pane looks exactly like a normal slice view by default. */
+.paneProjToggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  background: rgba(17, 19, 25, 0.88);
+  border: 1px solid var(--border-strong);
+  color: var(--text-faint);
+  border-radius: var(--radius-xs);
+  cursor: pointer;
+  padding: 0;
+  transition: color 0.12s ease, border-color 0.12s ease;
+}
+.paneProjToggle svg { width: 13px; height: 13px; }
+.paneProjToggle:hover { color: var(--accent-strong); border-color: var(--accent-border); }
+.mprPane.projPanelOpen .paneProjToggle { color: var(--accent-strong); border-color: var(--accent-border); }
+.mprPane.off .paneProjToggle { display: none; }
+
+.paneProjRow { display: none; gap: 4px; margin-top: 4px; }
+.mprPane.projPanelOpen .paneProjRow { display: flex; }
+.paneProjSelect { color: var(--accent-strong); }
+.paneProjInput {
+  display: none;
+  width: 42px;
+  background: rgba(17, 19, 25, 0.88);
+  border: 1px solid var(--border-strong);
+  color: var(--accent-strong);
+  font: 500 11px var(--font-mono);
+  padding: 3px 4px;
+  border-radius: var(--radius-xs);
+}
+.mprPane.projActive .paneProjInput { display: block; }
+.mprPane.off .paneProjRow { display: none; }
+
+.paneInfo {
+  position: absolute;
+  bottom: 8px;
+  right: 10px;
+  z-index: 2;
+  color: var(--mono-accent);
+  font: 11px/1.4 var(--font-mono);
+  pointer-events: none;
+  text-shadow: 0 1px 3px #000;
+  white-space: pre;
+  text-align: right;
+}
+
+/* Signature: live Hounsfield-unit readout at the cursor — the number a radiologist
+   actually wants under the crosshair, read straight off the rendered slice. Sharp
+   corner, solid ground, no blur: an instrument readout, not a tooltip. */
+.huReadout {
+  position: absolute;
+  z-index: 4;
+  background: var(--bg-0);
+  border: 1px solid var(--accent-border);
+  color: var(--accent-strong);
+  font: 500 11px/1 var(--font-mono);
+  padding: 3px 6px;
+  pointer-events: none;
+  white-space: nowrap;
+  box-shadow: 0 4px 12px -2px rgba(0,0,0,0.6);
+}
+.huReadout.hidden { display: none; }
+
+.mprPane.off { display: flex; align-items: center; justify-content: center; }
+.mprPane.off canvas { display: none; }
+.mprPane.off::after { content: "Off"; color: var(--text-faint); font-size: 12px; }
+
+/* Double-click a pane to blow it up to fill the grid; double-click again to restore.
+   !important overrides the inline grid-template set by buildGridPanes(). */
+#mprGrid.hasMaximized { grid-template-columns: 1fr !important; grid-template-rows: 1fr !important; }
+#mprGrid.hasMaximized .mprPane { display: none; }
+#mprGrid.hasMaximized .mprPane.maximized { display: block; }
+#mprGrid.hasMaximized .mprPane.maximized.off { display: flex; }
+
+#dropHint {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  color: var(--text-faint);
+  pointer-events: none;
+  gap: 4px;
+}
+#dropHint.hidden { display: none; }
+.dropIcon { width: 44px; height: 44px; color: var(--accent-2); opacity: 0.8; margin-bottom: 10px; }
+.dropTitle { font-size: 16px; font-weight: 600; color: var(--text-dim); }
+.dropSub { font-family: var(--font-serif); font-style: italic; font-size: 13px; color: var(--text-faint); margin-top: 2px; }
+
+/* A faint mark on the empty canvas — the reading room waiting for film, not a
+   generic file-upload placeholder. Purely decorative: kept far too quiet to
+   compete with anything real once a study loads. */
+#viewportWrap::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image: url('logo-mark.png');
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 280px;
+  opacity: 0.09;
+}
+
+.overlay {
+  position: absolute;
+  color: var(--mono-accent);
+  font: 11.5px/1.55 var(--font-mono);
+  pointer-events: none;
+  white-space: pre;
+  background: rgba(10, 11, 15, 0.45);
+  padding: 6px 9px;
+  border-radius: var(--radius-xs);
+  backdrop-filter: blur(2px);
+}
+#overlayTL { top: 10px; left: 10px; }
+#overlayTR { top: 10px; right: 10px; text-align: right; }
+#overlayBL { bottom: 10px; left: 10px; }
+#overlayBR { bottom: 10px; right: 10px; text-align: right; }
+.overlay:empty { display: none; }
+
+#viewportWrap.dragover #dropHint .dropIcon,
+#viewportWrap.dragover #dropHint .dropTitle { color: var(--ok); }
+
+/* ---------- Modals (Lund-Mackay, PACS) ---------- */
+
+.modal { position: fixed; inset: 0; z-index: 100; color: var(--text); }
+.modal.hidden { display: none; }
+.modalBackdrop { position: absolute; inset: 0; background: rgba(3, 5, 8, 0.76); backdrop-filter: blur(3px); }
+.modalPanel {
+  position: relative;
+  max-width: 640px;
+  margin: 5vh auto;
+  max-height: 90vh;
+  overflow-y: auto;
+  background: var(--bg-2);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+}
+.modalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-3);
+  border-radius: var(--radius) var(--radius) 0 0;
+}
+.modalHeader h2 { margin: 0; font-size: 15.5px; font-weight: 700; letter-spacing: 0.01em; }
+.modalBody { padding: 20px; display: flex; flex-direction: column; gap: 16px; }
+
+.lmWarning {
+  background: var(--warn-bg);
+  border: 1px solid var(--warn-border);
+  color: var(--warn);
+  font-size: 12px;
+  line-height: 1.6;
+  padding: 11px 14px;
+  border-radius: var(--radius-sm);
+}
+.lmWarning.hidden { display: none; }
+
+.patientContextBar {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--accent-bg);
+  border: 1px solid var(--accent-border);
+  color: var(--accent-strong);
+}
+.patientContextBar.noPatient {
+  background: var(--warn-bg);
+  border-color: var(--warn-border);
+  color: var(--warn);
+}
+
+.lmTable { width: 100%; border-collapse: collapse; font-size: 13px; }
+.lmTable th { text-align: left; color: var(--text-faint); font-weight: 600; padding: 6px; border-bottom: 1px solid var(--border); }
+.lmTable td { padding: 6px; border-bottom: 1px solid var(--bg-3); }
+.lmTable td:first-child { color: var(--text); }
+
+.lmSelect {
+  background: var(--bg-4);
+  border: 1px solid var(--border-strong);
+  color: var(--text);
+  padding: 4px 7px;
+  border-radius: var(--radius-xs);
+  font: 13px var(--font-sans);
+}
+.lmSelect.ai-pending { border-color: var(--warn); box-shadow: 0 0 0 1px rgba(240,185,74,0.35); }
+.lmAiBadge {
+  display: inline-block;
+  margin-left: 6px;
+  font-size: 10px;
+  color: #1a1c21;
+  background: var(--warn);
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-weight: 700;
+}
+
+.lmTotals { display: flex; gap: 22px; font-size: 13px; color: var(--text-dim); }
+.lmTotals b { color: var(--text); }
+
+.lmActions { display: flex; gap: 8px; flex-wrap: wrap; }
+.lmStatus { font-size: 12px; color: var(--ok); min-height: 16px; }
+
+.lmApiKeyBox { display: flex; flex-direction: column; gap: 6px; background: var(--bg-1); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px; }
+.lmApiKeyBox.hidden { display: none; }
+.lmApiKeyBox label { font-size: 11px; color: var(--text-faint); }
+.lmApiKeyBox input {
+  background: var(--bg-4);
+  border: 1px solid var(--border-strong);
+  color: var(--text);
+  padding: 7px 9px;
+  border-radius: var(--radius-xs);
+  font-size: 12px;
+}
+
+.lmReportOutput {
+  width: 100%;
+  min-height: 220px;
+  background: var(--bg-0);
+  color: #c8ccd4;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  font: 12px/1.6 var(--font-mono);
+  resize: vertical;
+}
+
+/* ---------- PACS modal ---------- */
+
+.pacsSection { display: flex; flex-direction: column; gap: 7px; }
+.pacsSection h3 { margin: 0 0 2px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-faint); }
+.pacsSection label { font-size: 11px; color: var(--text-faint); margin-top: 4px; }
+.pacsSection input,
+.pacsSection select {
+  background: var(--bg-4);
+  border: 1px solid var(--border-strong);
+  color: var(--text);
+  padding: 7px 9px;
+  border-radius: var(--radius-xs);
+  font-size: 12px;
+  width: 100%;
+}
+.pacsAuthFields { display: flex; flex-direction: column; gap: 6px; }
+.pacsAuthFields.hidden { display: none; }
+
+.pacsLocRow { display: flex; gap: 8px; align-items: center; }
+.pacsLocSelectWrap { flex: 1; }
+.pacsLocSelectWrap .uiSelect { width: 100%; }
+
+.pacsSearchGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.pacsSearchGrid button { grid-column: 1 / -1; }
+
+.pacsResults td { font-size: 12px; }
+.pacsResults button { padding: 4px 12px; }
+
+/* ---------- Surgery videos modal ---------- */
+
+.modalPanelWide { max-width: 780px; }
+.modalPanelVideos { max-width: 960px; width: 92vw; }
+
+/* ---------- Dockable side panel (Surgery Videos) ---------- */
+/* Anchored to the right, spanning between the toolbar and the status bar. A pin
+   makes room in the viewer so it can stay open beside the scan; blow-up fills the
+   whole content area. Sized larger than a modal, with big controls for low vision. */
+.sideDock {
+  position: fixed;
+  top: 50px;          /* below the toolbar */
+  right: 0;
+  bottom: 26px;       /* above the status bar */
+  width: 520px;
+  max-width: 96vw;
+  z-index: 80;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-2);
+  border-left: 1px solid var(--border-strong);
+  box-shadow: var(--shadow-lg);
+}
+.sideDock.hidden { display: none; }
+.sideDock.blownUp { top: 50px; bottom: 26px; left: 0; width: auto; max-width: none; border-left: none; }
+
+.sideDockHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 11px 14px;
+  background: var(--bg-3);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.sideDockTitle { font-size: 14px; font-weight: 700; letter-spacing: 0.02em; }
+.sideDockControls { display: flex; align-items: center; gap: 4px; }
+.dockBtn {
+  width: 30px; height: 30px;
+  display: flex; align-items: center; justify-content: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-xs);
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+}
+.dockBtn svg { width: 17px; height: 17px; }
+.dockBtn:hover { background: var(--bg-4); color: var(--text); }
+#videoPin.pinned, .dockBtn.active { background: var(--accent-bg); border-color: var(--accent-border); color: var(--accent-strong); }
+
+.sideDockBody { padding: 16px; display: flex; flex-direction: column; gap: 14px; overflow-y: auto; flex: 1; }
+
+/* Make room in the viewer when the dock is pinned (so it sits beside the scan). */
+#app.videoDockPinned #main { margin-right: 520px; }
+
+/* Bigger for the doctor's eyesight: a large player, big folder/video type. */
+/* Keep the playback pinned to the top of the panel while the list scrolls beneath,
+   so clicking any video (however far down) always shows the player. */
+.sideDock .videoPlayer {
+  position: sticky;
+  top: -16px;               /* cancel the body's top padding so it hugs the header */
+  z-index: 5;
+  max-height: 40vh;
+  box-shadow: 0 6px 14px rgba(0,0,0,0.55);
+}
+.sideDock.blownUp .videoPlayer { top: 0; }
+.sideDock.blownUp .videoPlayer { max-height: 62vh; }
+.sideDock.blownUp .sideDockBody { max-width: 1100px; width: 100%; margin: 0 auto; }
+.sideDock .videoRowTitle { font-size: 13.5px; }
+.sideDock .videoFolderRow { font-size: 13.5px; padding: 9px 11px; }
+.sideDock #videoModal input[type="text"], .sideDock input[type="text"] { font-size: 13.5px; padding: 9px 11px; }
+.sideDock .videoGrid { grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); }
+.sideDock.blownUp .videoGrid { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+
+.videoUploadRow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.videoUploadRow input[type="text"] { flex: 1; min-width: 220px; }
+
+.videoDropZone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 18px 20px;
+  border: 1.5px dashed var(--border-strong);
+  border-radius: var(--radius-sm);
+  color: var(--text-dim);
+  font-size: 12.5px;
+  transition: border-color 0.12s ease, background 0.12s ease;
+}
+.videoDropZone.dragover { border-color: var(--accent-strong); background: var(--accent-bg); }
+.videoDropIcon { width: 26px; height: 26px; color: var(--text-faint); }
+
+.videoPlayer {
+  width: 100%;
+  max-height: 46vh;
+  background: #000;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+}
+.videoPlayer.hidden { display: none; }
+
+#videoModal input[type="text"] {
+  background: var(--bg-4);
+  border: 1px solid var(--border-strong);
+  color: var(--text);
+  padding: 7px 9px;
+  border-radius: var(--radius-xs);
+  font-size: 12px;
+  width: 100%;
+}
+
+/* Two-pane browser: folder list on the left, filter + video grid on the right */
+.videoBrowser { display: flex; gap: 16px; align-items: flex-start; }
+.videoFolderPane { flex: 0 0 170px; display: flex; flex-direction: column; gap: 6px; }
+.videoFolderPaneTitle { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-faint); padding: 0 2px; }
+.videoFolderNav { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.videoFolderRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 7px 9px;
+  border-radius: var(--radius-xs);
+  cursor: pointer;
+  color: var(--text-dim);
+  font-size: 12.5px;
+  border-left: 3px solid transparent;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+.videoFolderRow:hover { background: var(--bg-3); }
+.videoFolderRow.active { background: var(--accent-bg); border-left-color: var(--accent-strong); color: #fff; }
+.videoFolderRow span:first-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.videoFolderCount { flex-shrink: 0; font-size: 10.5px; color: var(--text-faint); }
+.videoFolderRow.active .videoFolderCount { color: #bcd3e6; }
+
+.videoMainPane { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 10px; }
+
+.videoGrid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px;
+}
+.videoCard {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  overflow: hidden;
+  border: 1px solid transparent;
+  background: var(--bg-3);
+  transition: border-color 0.12s ease;
+}
+.videoCard:hover { border-color: var(--border-strong); }
+.videoCard.active { border-color: var(--accent-strong); }
+.videoCardThumb {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: var(--bg-4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-faint);
+  overflow: hidden;
+}
+.videoCardThumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.videoCardThumb .videoRowIcon { width: 26px; height: 26px; }
+.videoCardBody { padding: 7px 9px 9px; min-width: 0; }
+.videoRowTitle {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.videoRowMeta { font-size: 10.5px; color: var(--text-faint); margin-top: 3px; display: flex; align-items: center; flex-wrap: wrap; gap: 4px 0; }
+.videoDelete {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(5,6,9,0.65);
+  border: none;
+  border-radius: var(--radius-xs);
+  color: var(--text-dim);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s ease, background 0.12s ease, color 0.12s ease;
+}
+.videoDelete svg { width: 15px; height: 15px; }
+.videoCard:hover .videoDelete { opacity: 1; }
+.videoDelete:hover { background: rgba(240,104,95,0.35); color: var(--err); }
+
+.videoRowProcedure {
+  display: inline-block;
+  background: var(--accent-bg);
+  border: 1px solid var(--accent-border);
+  color: var(--accent-strong);
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 3px;
+}
+
+/* ---------- AI Note (standalone "clip note" quick read) ---------- */
+
+.modalPanelNote { max-width: 480px; }
+
+.clipNote {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: var(--bg-1);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent-strong);
+  border-radius: var(--radius-sm);
+  padding: 14px 16px;
+}
+.clipNote.hidden { display: none; }
+.clipNoteHeader {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--accent-strong);
+}
+.clipNoteIcon { width: 15px; height: 15px; }
+.lmReadList { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 5px; }
+.lmReadList li { display: flex; align-items: baseline; gap: 8px; font-size: 12.5px; flex-wrap: wrap; }
+.lmReadRegion { color: var(--text-dim); min-width: 130px; }
+.lmReadLevel { font-weight: 600; padding: 1px 8px; border-radius: 3px; font-size: 11px; }
+.lmReadLevel-clear { color: var(--ok); background: rgba(79,202,139,0.12); }
+.lmReadLevel-mild { color: var(--warn); background: rgba(240,185,74,0.12); }
+.lmReadLevel-moderate { color: #f0954a; background: rgba(240,149,74,0.14); }
+.lmReadLevel-severe { color: var(--err); background: rgba(240,104,95,0.14); }
+.lmReadImpression { font-size: 12.5px; color: var(--text-dim); line-height: 1.6; font-style: italic; border-top: 1px solid var(--border); padding-top: 8px; }
+
+/* ---------- Scrollbars ---------- */
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--bg-5); border-radius: 6px; border: 2px solid var(--bg-2); }
+::-webkit-scrollbar-thumb:hover { background: var(--border-strong); }

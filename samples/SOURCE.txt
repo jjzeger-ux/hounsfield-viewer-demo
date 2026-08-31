@@ -1,0 +1,9 @@
+Sample DICOM files for the "Load Sample Studies" demo button.
+
+Source: pydicom test data (https://github.com/pydicom/pydicom/tree/main/src/pydicom/data/test_files)
+License: MIT (https://github.com/pydicom/pydicom/blob/main/LICENSE)
+
+These are small, public-domain/synthetic test images bundled with the pydicom
+project for automated testing. They are not real patient studies.
+
+Files used here: CT_small.dcm, MR_small.dcm, SC_rgb_small_odd.dcm
