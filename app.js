@@ -4122,7 +4122,7 @@ document.getElementById('worklistPacs').addEventListener('click', () => openPacs
 // Sample studies for visitors trying the viewer without their own DICOM files.
 // Real multi-slice TCIA studies (CC BY 4.0, redistributed by saga-it.com) — see
 // samples/SOURCE.txt and each folder's CITATION.txt for the required attribution.
-const SAMPLE_STUDIES = ['ct-chest-nlst', 'mr-brain-upenn-gbm'];
+const SAMPLE_STUDIES = ['ct-chest-nlst'];
 document.getElementById('worklistSamples').addEventListener('click', async () => {
   setStatus('Loading sample studies...');
   try {

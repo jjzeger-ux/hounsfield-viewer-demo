@@ -1,11 +1,10 @@
-Sample studies for the "Load Sample Studies" demo button.
+Sample study for the "Load Sample CT" demo button.
 
-Both are real, full multi-slice studies from The Cancer Imaging Archive (TCIA),
+A real, full multi-slice study from The Cancer Imaging Archive (TCIA),
 redistributed by Saga IT (https://saga-it.com/dicom/samples) under CC BY 4.0
-(https://creativecommons.org/licenses/by/4.0/). See each folder's CITATION.txt
+(https://creativecommons.org/licenses/by/4.0/). See ct-chest-nlst/CITATION.txt
 for the full required attribution.
 
-- ct-chest-nlst/       Chest CT, ~150 axial slices — NLST Lung Cancer Screening Trial
-- mr-brain-upenn-gbm/  Brain MR, ~64 slices — UPENN-GBM Glioblastoma Study
+- ct-chest-nlst/  Chest CT, 150 axial slices — NLST Lung Cancer Screening Trial
 
-These are de-identified research datasets, not real patients seen at this practice.
+This is a de-identified research dataset, not a real patient seen at this practice.

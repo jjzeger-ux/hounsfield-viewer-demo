@@ -1,8 +1,0 @@
-Brain MR — UPENN-GBM Glioblastoma Study
-Source collection: UPENN-GBM (Glioblastoma at the University of Pennsylvania)
-License: CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)
-
-Data citation:
-Bakas, S., Sako, C., Akbari, H., Bilello, M., Sotiras, A., Shukla, G., Rudie, J. D., Flores Santamaria, N., Fathi Kazerooni, A., Pati, S., Rathore, S., Mamourian, E., Ha, S. M., Parker, W., Doshi, J., Baid, U., Bergman, M., Binder, Z. A., Verma, R., et al. (2021). Multi-parametric magnetic resonance imaging (mpMRI) scans for de novo Glioblastoma (GBM) patients from the University of Pennsylvania Health System (UPENN-GBM) (Version 2) [Data set]. The Cancer Imaging Archive. https://doi.org/10.7937/TCIA.709X-DN49
-
-Redistributed by Saga IT (saga-it.com/dicom/samples) under the Creative Commons Attribution license above. Sourced from the NCI Imaging Data Commons (portal.imaging.datacommons.cancer.gov).
