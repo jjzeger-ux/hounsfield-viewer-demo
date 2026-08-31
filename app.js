@@ -4120,17 +4120,31 @@ document.getElementById('fileInput2').addEventListener('change', (e) => { handle
 document.getElementById('worklistPacs').addEventListener('click', () => openPacsModal());
 
 // Sample studies for visitors trying the viewer without their own DICOM files.
-// Files are public-domain test data from pydicom (MIT license), not real patients.
-const SAMPLE_STUDIES = ['CT_small.dcm', 'MR_small.dcm', 'SC_rgb_small_odd.dcm'];
+// Real multi-slice TCIA studies (CC BY 4.0, redistributed by saga-it.com) — see
+// samples/SOURCE.txt and each folder's CITATION.txt for the required attribution.
+const SAMPLE_STUDIES = ['ct-chest-nlst', 'mr-brain-upenn-gbm'];
 document.getElementById('worklistSamples').addEventListener('click', async () => {
   setStatus('Loading sample studies...');
   try {
-    const files = await Promise.all(SAMPLE_STUDIES.map(async (name) => {
-      const res = await fetch(`samples/${name}`);
-      if (!res.ok) throw new Error(`HTTP ${res.status} fetching ${name}`);
-      const blob = await res.blob();
-      return new File([blob], name, { type: 'application/dicom' });
-    }));
+    const files = [];
+    for (const folder of SAMPLE_STUDIES) {
+      const manifestRes = await fetch(`samples/${folder}/manifest.json`);
+      if (!manifestRes.ok) throw new Error(`HTTP ${manifestRes.status} fetching ${folder} manifest`);
+      const names = await manifestRes.json();
+      let loaded = 0;
+      const studyFiles = await Promise.all(names.map(async (name) => {
+        const res = await fetch(`samples/${folder}/${name}`);
+        if (!res.ok) throw new Error(`HTTP ${res.status} fetching ${folder}/${name}`);
+        const blob = await res.blob();
+        loaded++;
+        if (loaded % 20 === 0 || loaded === names.length) {
+          setStatus(`Loading sample studies... (${folder}: ${loaded}/${names.length})`);
+          await yieldToUI();
+        }
+        return new File([blob], name, { type: 'application/dicom' });
+      }));
+      files.push(...studyFiles);
+    }
     await handleFiles(files);
   } catch (e) {
     setStatus(`Could not load sample studies — ${errMsg(e)}`, 'err');

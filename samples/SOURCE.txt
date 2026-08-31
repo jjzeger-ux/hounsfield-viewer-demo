@@ -1,9 +1,11 @@
-Sample DICOM files for the "Load Sample Studies" demo button.
+Sample studies for the "Load Sample Studies" demo button.
 
-Source: pydicom test data (https://github.com/pydicom/pydicom/tree/main/src/pydicom/data/test_files)
-License: MIT (https://github.com/pydicom/pydicom/blob/main/LICENSE)
+Both are real, full multi-slice studies from The Cancer Imaging Archive (TCIA),
+redistributed by Saga IT (https://saga-it.com/dicom/samples) under CC BY 4.0
+(https://creativecommons.org/licenses/by/4.0/). See each folder's CITATION.txt
+for the full required attribution.
 
-These are small, public-domain/synthetic test images bundled with the pydicom
-project for automated testing. They are not real patient studies.
+- ct-chest-nlst/       Chest CT, ~150 axial slices — NLST Lung Cancer Screening Trial
+- mr-brain-upenn-gbm/  Brain MR, ~64 slices — UPENN-GBM Glioblastoma Study
 
-Files used here: CT_small.dcm, MR_small.dcm, SC_rgb_small_odd.dcm
+These are de-identified research datasets, not real patients seen at this practice.
