@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://hounsfield.vercel.app/sitemap.xml
