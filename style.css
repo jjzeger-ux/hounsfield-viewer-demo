@@ -1213,7 +1213,7 @@ select.btn:hover { background: var(--bg-4); }
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  background-image: url('apollo-mark.svg?v=official1');
+  background-image: url('apollo-mark.svg?v=official2');
   background-repeat: no-repeat;
   background-position: center;
   background-size: 280px;
