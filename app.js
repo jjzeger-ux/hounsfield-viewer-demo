@@ -3117,7 +3117,7 @@ async function exportLibrary() {
     const blob = new Blob([BACKUP_MAGIC, salt, iv, cipher], { type: 'application/octet-stream' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = `hounsfield_backup_${new Date().toISOString().slice(0, 10)}.dvbackup`;
+    a.download = `apollo_backup_${new Date().toISOString().slice(0, 10)}.dvbackup`;
     a.click();
     URL.revokeObjectURL(a.href);
 
@@ -4176,7 +4176,7 @@ function captureViewCanvas() {
 function exportFilenameBase() {
   const entry = state.entries[state.currentIndex];
   const nm = entry ? (entry.dataSet.string('x00100010') || '').replace(/[\^\s]+/g, '_').replace(/[^A-Za-z0-9_-]/g, '') : '';
-  return `hounsfield${nm ? '_' + nm : ''}_${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}`;
+  return `apollo${nm ? '_' + nm : ''}_${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}`;
 }
 
 function exportViewPng() {
